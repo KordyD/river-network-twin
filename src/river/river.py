@@ -30,7 +30,9 @@ from src.common import (
 )
 from src.progress_manager import ProgressManager
 
+from .bedrock_banks import detect_bedrock_banks
 from .layers.basins import build_basins_layer
+from .layers.bedrock_banks_layer import build_bedrock_banks_layer
 from .layers.clustering import assign_clusters, preparing_data_for_clustering
 from .layers.max_height_points import build_max_height_points
 from .layers.rivers_and_points import build_rivers_and_points_layer
@@ -376,9 +378,24 @@ def river(project_folder: Path, with_clustering) -> None:
         )
         QgsProject.instance().addMapLayer(underground_channel)
 
+        # Выделение коренных берегов
+        if not progress.update(88, "Выделение коренных берегов"):
+            return
+
+        bedrock_banks_path = Path(project_folder) / "bedrock_banks.gpkg"
+        bedrock_banks = build_bedrock_banks_layer(
+            rivers_merged,
+            dem_layer,
+            bedrock_banks_path,
+            buffer_distance=200.0,
+            height_threshold=3.0,
+            slope_threshold=8.0,
+        )
+        QgsProject.instance().addMapLayer(bedrock_banks)
+
         # Кластеризация (если требуется)
         if with_clustering:
-            if not progress.update(90, "Кластеризация точек"):
+            if not progress.update(92, "Кластеризация точек"):
                 return
             copied_point_layer = point_layer.clone()
             data_for_clustering_path = Path(project_folder) / "Изолинии.gpkg"
