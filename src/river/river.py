@@ -36,8 +36,10 @@ from .layers.max_height_points import build_max_height_points
 from .layers.rivers_and_points import build_rivers_and_points_layer
 from .layers.rivers_by_object_filtered import build_rivers_by_object_filtered
 from .layers.rivers_merged import build_merged_layer
+from .layers.underground_channel_layer import build_underground_channel_layer
 from .layers.utils import load_quickosm_layer
 from .point_selection_tool import PointSelectionTool
+from .underground_channel import detect_underground_channel
 
 RIVER_FILTERS = {
     "max_strahler_order": (">=", 2),
@@ -358,9 +360,25 @@ def river(project_folder: Path, with_clustering) -> None:
         point_layer.commitChanges(True)
         QgsProject.instance().addMapLayer(point_layer)
 
+        # Выделение границ подземного русла
+        if not progress.update(85, "Выделение границ подземного русла"):
+            return
+        underground_channel_path = Path(project_folder) / "underground_channel.gpkg"
+        underground_channel_raw = detect_underground_channel(
+            rivers_merged,
+            dem_layer,
+            underground_channel_path,
+            buffer_distance=50.0,
+        )
+        underground_channel = build_underground_channel_layer(
+            underground_channel_raw,
+            underground_channel_path,
+        )
+        QgsProject.instance().addMapLayer(underground_channel)
+
         # Кластеризация (если требуется)
         if with_clustering:
-            if not progress.update(95, "Кластеризация точек"):
+            if not progress.update(90, "Кластеризация точек"):
                 return
             copied_point_layer = point_layer.clone()
             data_for_clustering_path = Path(project_folder) / "Изолинии.gpkg"
